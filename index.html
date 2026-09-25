@@ -54,12 +54,9 @@
 
                 <!-- Action Controls -->
                 <div class="flex items-center space-x-2 sm:space-x-3">
-                    <button id="connectSheetBtn" onclick="openSheetModal()" class="flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-200 hover:border-brand-500 hover:text-brand-600 transition-colors bg-white shadow-sm">
-                        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
-                        <span id="sheetBtnText">Connect Google Sheet</span>
-                    </button>
-                    <button onclick="resetData()" title="Reset to Sample Data" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <button onclick="refreshData()" title="Refresh Catalog" class="p-2 text-slate-500 hover:text-slate-800 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Refresh</span>
                     </button>
                 </div>
 
@@ -83,8 +80,8 @@
                 <!-- Stats Ribbon -->
                 <div class="flex items-center justify-between sm:justify-end gap-3 text-xs text-slate-500">
                     <span>Showing <strong id="bookCount" class="text-slate-900 font-semibold">0</strong> books</span>
-                    <span id="activeSourceBadge" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-600">
-                        <i data-lucide="database" class="w-3 h-3"></i> Sample Data
+                    <span id="activeSourceBadge" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <i data-lucide="cloud" class="w-3 h-3 text-emerald-500"></i> Live Catalog
                     </span>
                 </div>
 
@@ -212,7 +209,7 @@
                         <textarea id="reviewerComment" required rows="2" placeholder="Write a comment or brief review..." class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 mb-3"></textarea>
 
                         <div class="flex justify-end">
-                            <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-brand-500/20">
+                            <button type="submit" id="submitReviewBtn" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-brand-500/20">
                                 Submit Review
                             </button>
                         </div>
@@ -233,106 +230,47 @@
         </div>
     </div>
 
-    <!-- Google Sheet Configuration Modal -->
-    <div id="sheetModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-100">
-            <button onclick="closeSheetModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-
-            <div class="flex items-center space-x-3 mb-4">
-                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
-                    <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-slate-900">Connect Google Sheet</h3>
-                    <p class="text-xs text-slate-500">Sync your live book catalog dynamically</p>
-                </div>
-            </div>
-
-            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-2 mb-4">
-                <p class="font-semibold text-slate-800">How to link your Google Sheet:</p>
-                <ol class="list-decimal pl-4 space-y-1">
-                    <li>Open your Google Sheet containing your books.</li>
-                    <li>Ensure column headers include: <strong>Title</strong>, <strong>Author</strong>, <strong>Location</strong>.</li>
-                    <li>Click <strong>File</strong> &gt; <strong>Share</strong> &gt; <strong>Publish to Web</strong>.</li>
-                    <li>Choose <strong>Comma-separated values (.csv)</strong> and click <strong>Publish</strong>.</li>
-                    <li>Paste the CSV link below.</li>
-                </ol>
-            </div>
-
-            <form onsubmit="handleConnectSheet(event)">
-                <label class="block text-xs font-medium text-slate-700 mb-1">Published CSV URL</label>
-                <input type="url" id="sheetUrlInput" required placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 mb-4">
-
-                <div class="flex justify-end space-x-2">
-                    <button type="button" onclick="closeSheetModal()" class="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-semibold">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-brand-500/20">Connect Sheet</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <script>
-        // Sample Initial Books
+        // =========================================================================
+        // CONFIGURATION: Paste your published Google Sheet CSV link below
+        // =========================================================================
+        const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vYOUR_SHEET_ID_HERE/pub?output=csv";
+
+        // Optional: Google Apps Script Webhook URL for saving comments back to Google Sheets
+        const COMMENT_WEBHOOK_URL = "";
+
+        // Sample Backup Books (Shown if DEFAULT_SHEET_URL is not set yet)
         const SAMPLE_BOOKS = [
             { id: '1', title: 'The Hobbit', author: 'J.R.R. Tolkien', location: 'Living Room Shelf A' },
             { id: '2', title: 'To Kill a Mockingbird', author: 'Harper Lee', location: 'Master Bedroom Nightstand' },
             { id: '3', title: 'Dune', author: 'Frank Herbert', location: 'Office Bookcase Row 2' },
             { id: '4', title: 'Atomic Habits', author: 'James Clear', location: 'Study Desk' },
-            { id: '5', title: '1984', author: 'George Orwell', location: 'Living Room Shelf B' },
-            { id: '6', title: 'Pride and Prejudice', author: 'Jane Austen', location: 'Guest Room Shelf' },
-            { id: '7', title: 'Sapiens', author: 'Yuval Noah Harari', location: 'Office Bookcase Row 1' },
-            { id: '8', title: 'The Catcher in the Rye', author: 'J.D. Salinger', location: 'Kids Bedroom Shelf' }
+            { id: '5', title: '1984', author: 'George Orwell', location: 'Living Room Shelf B' }
         ];
-
-        // Sample initial comments
-        const SAMPLE_REVIEWS = {
-            '1': [{ name: 'Dad', comment: 'A masterpiece! Read it twice.', rating: 5, date: '2025-01-15' }],
-            '3': [{ name: 'Alex', comment: 'Incredible world-building.', rating: 5, date: '2025-02-10' }],
-             '4': [{ name: 'Mom', comment: 'Very practical advice.', rating: 4, date: '2025-03-01' }]
-        };
 
         // Application State
         let books = [];
         let filteredBooks = [];
-        let currentSortColumn = 'author'; // Default sort by Author
+        let currentSortColumn = 'author';
         let currentSortDirection = 'asc';
         let currentBookId = null;
         let selectedUserRating = 5;
 
         // Local Storage Reviews initialization
-        let localReviews = JSON.parse(localStorage.getItem('family_library_reviews_v2') || JSON.stringify(SAMPLE_REVIEWS));
+        let localReviews = JSON.parse(localStorage.getItem('family_library_reviews_v3') || '{}');
 
         window.onload = function() {
             lucide.createIcons();
-            initApp();
+            refreshData();
         };
 
-        function initApp() {
-            const savedSheetUrl = localStorage.getItem('family_library_sheet_url_v2');
-            if (savedSheetUrl) {
-                fetchGoogleSheetData(savedSheetUrl);
+        function refreshData() {
+            if (DEFAULT_SHEET_URL && !DEFAULT_SHEET_URL.includes("YOUR_SHEET_ID_HERE")) {
+                fetchGoogleSheetData(DEFAULT_SHEET_URL);
             } else {
                 books = [...SAMPLE_BOOKS];
-                updateSourceBadge(false);
                 applyFilters();
             }
-        }
-
-        function updateSourceBadge(isSheet) {
-            const badge = document.getElementById('activeSourceBadge');
-            const btnText = document.getElementById('sheetBtnText');
-            if (isSheet) {
-                badge.innerHTML = `<i data-lucide="cloud" class="w-3 h-3 text-emerald-500"></i> Sheet Connected`;
-                badge.className = "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200";
-                btnText.textContent = "Change Sheet";
-            } else {
-                badge.innerHTML = `<i data-lucide="database" class="w-3 h-3"></i> Sample Data`;
-                badge.className = "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-600";
-                btnText.textContent = "Connect Google Sheet";
-            }
-            lucide.createIcons();
         }
 
         function fetchGoogleSheetData(url) {
@@ -343,16 +281,16 @@
                 complete: function(results) {
                     if (results.data && results.data.length > 0) {
                         books = parseGoogleSheetRows(results.data);
-                        localStorage.setItem('family_library_sheet_url_v2', url);
-                        updateSourceBadge(true);
                         applyFilters();
-                        closeSheetModal();
                     } else {
-                        alert('Could not parse Google Sheet CSV. Please verify your link.');
+                        books = [...SAMPLE_BOOKS];
+                        applyFilters();
                     }
                 },
                 error: function(err) {
-                    alert('Error loading CSV: ' + err.message);
+                    console.error('Error loading CSV, using sample data:', err);
+                    books = [...SAMPLE_BOOKS];
+                    applyFilters();
                 }
             });
         }
@@ -427,7 +365,6 @@
                 );
             });
 
-            // Sort books
             filteredBooks.sort((a, b) => {
                 let valA, valB;
 
@@ -472,25 +409,18 @@
 
                 return `
                     <tr onclick="openBookModal('${book.id}')" class="hover:bg-slate-50/90 transition-colors cursor-pointer group">
-                        <!-- Title -->
                         <td class="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 group-hover:text-brand-600 transition-colors">
                             ${escapeHtml(book.title)}
                         </td>
-
-                        <!-- Author -->
                         <td class="py-3.5 px-4 sm:px-6 font-medium text-slate-700">
                             ${escapeHtml(book.author)}
                         </td>
-
-                        <!-- Location -->
                         <td class="py-3.5 px-4 sm:px-6 text-slate-600">
                             <span class="inline-flex items-center gap-1.5 text-xs bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/60">
                                 <i data-lucide="map-pin" class="w-3.5 h-3.5 text-brand-600"></i>
                                 ${escapeHtml(book.location)}
                             </span>
                         </td>
-
-                        <!-- Rating -->
                         <td class="py-3.5 px-4 sm:px-6">
                             ${avgRating !== null ? `
                                 <div class="flex items-center text-amber-500 font-semibold text-xs">
@@ -502,8 +432,6 @@
                                 <span class="text-xs text-slate-400 italic">No ratings</span>
                             `}
                         </td>
-
-                        <!-- Action -->
                         <td class="py-3.5 px-4 sm:px-6 text-right" onclick="event.stopPropagation(); openBookModal('${book.id}');">
                             <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-slate-700 transition-colors">
                                 <span>View / Rate</span>
@@ -549,10 +477,11 @@
             });
         }
 
-        function handleAddReview(e) {
+        async function handleAddReview(e) {
             e.preventDefault();
             if (!currentBookId) return;
 
+            const book = books.find(b => b.id === currentBookId);
             const nameInput = document.getElementById('reviewerName');
             const commentInput = document.getElementById('reviewerComment');
 
@@ -568,7 +497,26 @@
             }
 
             localReviews[currentBookId].unshift(newReview);
-            localStorage.setItem('family_library_reviews_v2', JSON.stringify(localReviews));
+            localStorage.setItem('family_library_reviews_v3', JSON.stringify(localReviews));
+
+            // Optional Webhook save
+            if (COMMENT_WEBHOOK_URL) {
+                try {
+                    await fetch(COMMENT_WEBHOOK_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: book ? book.title : '',
+                            author: newReview.name,
+                            rating: newReview.rating,
+                            text: newReview.comment
+                        })
+                    });
+                } catch (err) {
+                    console.error('Webhook error:', err);
+                }
+            }
 
             commentInput.value = '';
             renderModalRatingsAndReviews();
@@ -611,33 +559,6 @@
                 `).join('');
             }
             lucide.createIcons();
-        }
-
-        function openSheetModal() {
-            document.getElementById('sheetModal').classList.remove('hidden');
-        }
-
-        function closeSheetModal() {
-            document.getElementById('sheetModal').classList.add('hidden');
-        }
-
-        function handleConnectSheet(e) {
-            e.preventDefault();
-            const url = document.getElementById('sheetUrlInput').value.trim();
-            if (url) {
-                fetchGoogleSheetData(url);
-            }
-        }
-
-        function resetData() {
-            if (confirm('Reset to default sample library data and clear custom reviews?')) {
-                localStorage.removeItem('family_library_sheet_url_v2');
-                localStorage.removeItem('family_library_reviews_v2');
-                localReviews = { ...SAMPLE_REVIEWS };
-                books = [...SAMPLE_BOOKS];
-                updateSourceBadge(false);
-                applyFilters();
-            }
         }
 
         function escapeHtml(text) {
